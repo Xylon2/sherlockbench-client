@@ -11,6 +11,8 @@ from .prompts import system_message, make_initial_message, make_decision_message
 from .utility import save_message
 from .verify import verify
 
+from sherlockbench_client.examples import load_examples
+
 class NoToolException(Exception):
     """When the LLM doesn't use it's tool when it was expected to."""
     pass
@@ -174,21 +176,33 @@ def investigate_decide_verify(postfn, completionfn, config, run_id, cursor, atte
     # setup the printer
     printer = AccumulatingPrinter()
 
-    printer.print("\n### SYSTEM: interrogating function with args", arg_spec)
+    # Get the function name for this attempt
+    function_name_response = postfn("developer/problem-names", {})
+    function_names = function_name_response.get("problem-names", [])
 
-    messages = [save_message("user", make_initial_message(test_limit))]
-    tool_calls, tool_call_count = investigate(config, postfn, completionfn, messages,
-                                              printer, attempt_id, arg_spec, output_type, test_limit)
+    # Find the function name for this attempt_id
+    function_name = None
+    for fn_info in function_names:
+        if fn_info.get("id") == attempt_id:
+            function_name = fn_info.get("function_name")
+            break
+
+    assert function_name is not None
+
+    # Load examples for this function
+    examples_data = load_examples()
+    examples_text = examples_data[function_name]
+ 
     printer.print("\n### SYSTEM: making decision based on tool calls", arg_spec)
-    printer.print(tool_calls)
+    printer.print(examples_text)
 
-    messages = [save_message("user", make_decision_message(tool_calls))]
+    messages = [save_message("user", make_decision_message(examples_text))]
     messages = decision(completionfn, messages, printer)
 
     printer.print("\n### SYSTEM: verifying function with args", arg_spec)
     verification_result = verify(config, postfn, completionfn, messages, printer, attempt_id, partial(format_inputs, arg_spec))
 
     time_taken = (datetime.now() - start_time).total_seconds()
-    q.add_attempt(cursor, run_id, verification_result, time_taken, tool_call_count, printer, completionfn, start_api_calls, attempt_id)
+    q.add_attempt(cursor, run_id, verification_result, time_taken, 0, printer, completionfn, start_api_calls, attempt_id)
 
     return verification_result

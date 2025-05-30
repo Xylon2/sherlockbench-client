@@ -1,7 +1,7 @@
 import sys
 from sherlockbench_client import destructure, make_schema
 from .utility import save_message
-from .prompts import make_verification_message
+from .prompts import make_verification_message_QA
 
 def verify(config, postfn, completionfn, messages, printer, attempt_id, v_formatter):
     # for each verification
@@ -14,7 +14,7 @@ def verify(config, postfn, completionfn, messages, printer, attempt_id, v_format
         printer.print("\n### SYSTEM: inputs:")
         printer.indented_print(verification_formatted)
 
-        vmessages = messages + [save_message("user", make_verification_message(verification_formatted))]
+        vmessages = messages + [save_message("user", make_verification_message_QA(verification_formatted))]
 
         completion = completionfn(contents=vmessages,
                                   schema=make_schema(output_type))
