@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from functools import partial
 
-from sherlockbench_client.examples import load_examples
+from sherlockbench_client.examples import load_examples, get_function_name_for_attempt
 from pydantic import BaseModel
 from sherlockbench_client import destructure, post, AccumulatingPrinter, LLMRateLimiter, q
 
@@ -132,17 +132,7 @@ def investigate_decide_verify(postfn, completionfn, config, run_id, cursor, atte
     printer = AccumulatingPrinter()
 
     # Get the function name for this attempt
-    function_name_response = postfn("developer/problem-names", {})
-    function_names = function_name_response.get("problem-names", [])
-
-    # Find the function name for this attempt_id
-    function_name = None
-    for fn_info in function_names:
-        if fn_info.get("id") == attempt_id:
-            function_name = fn_info.get("function_name")
-            break
-
-    assert function_name is not None
+    function_name = get_function_name_for_attempt(postfn, attempt_id)
 
     # Load examples for this function
     examples_data = load_examples()
